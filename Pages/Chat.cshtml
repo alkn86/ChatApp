@@ -1,0 +1,205 @@
+@page "{id:int}"
+@model ChatModel
+@{
+    ViewData["Title"] = $"#{Model.Room!.Name}";
+    Layout = "_Layout";
+}
+
+<div class="chat-container">
+    <div class="chat-header">
+        <a asp-page="/Index" id="leaveRoomButton" class="btn btn-sm btn-outline-secondary me-2">&#8592; Rooms</a>
+        <h5 class="mb-0"># @Model.Room.Name</h5>
+        <span class="ms-auto badge bg-secondary">@Model.Username</span>
+    </div>
+
+    <div class="chat-messages" id="messageContainer">
+        @foreach (var msg in Model.RecentMessages)
+        {
+            <div class="message @(msg.Username == Model.Username ? "message-own" : "")">
+                <div class="message-meta">
+                    <span class="message-username">@msg.Username</span>
+                    <span class="message-time">@msg.SentAt.ToLocalTime().ToString("HH:mm")</span>
+                </div>
+                @if (!string.IsNullOrEmpty(msg.Content))
+                {
+                    <div class="message-content">@msg.Content</div>
+                }
+                @if (!string.IsNullOrEmpty(msg.ImagePath))
+                {
+                    <div class="message-content message-image">
+                        <a href="@msg.ImagePath" target="_blank" rel="noopener noreferrer">
+                            <img src="@msg.ImagePath" class="chat-image" alt="image" loading="lazy" />
+                        </a>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="chat-input">
+        <div id="imagePreviewArea" class="image-preview-area" style="display:none;">
+            <img id="imagePreview" src="" alt="Preview" class="attachment-preview" />
+            <button type="button" id="removeImageBtn" class="btn btn-sm btn-outline-danger ms-2">&#x2715;</button>
+        </div>
+        <div class="input-group">
+            <label for="photoInput" class="btn btn-outline-secondary" title="Attach image">📷</label>
+            <input type="file" id="photoInput" accept="image/jpeg,image/png,image/gif,image/webp" class="d-none" />
+            <input type="text" id="messageInput" class="form-control form-control-lg"
+                   placeholder="Type a message..." maxlength="2000" autofocus />
+            <button id="sendButton" class="btn btn-primary">Send</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/lib/microsoft-signalr/dist/browser/signalr.min.js"></script>
+    <script>
+        const roomId = @Model.Room.Id;
+        const currentUser = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Username));
+
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/chathub")
+            .withAutomaticReconnect()
+            .build();
+
+        const container = document.getElementById("messageContainer");
+        const input = document.getElementById("messageInput");
+        const sendBtn = document.getElementById("sendButton");
+        const leaveRoomButton = document.getElementById("leaveRoomButton");
+        const photoInput = document.getElementById("photoInput");
+        const imagePreviewArea = document.getElementById("imagePreviewArea");
+        const imagePreview = document.getElementById("imagePreview");
+        const removeImageBtn = document.getElementById("removeImageBtn");
+
+        let pendingImagePath = null;
+        let pendingObjectUrl = null;
+
+        function escapeHtml(text) {
+            const d = document.createElement("div");
+            d.textContent = text;
+            return d.innerHTML;
+        }
+
+        function clearImage() {
+            if (pendingObjectUrl) {
+                URL.revokeObjectURL(pendingObjectUrl);
+                pendingObjectUrl = null;
+            }
+            pendingImagePath = null;
+            photoInput.value = "";
+            imagePreviewArea.style.display = "none";
+            imagePreview.src = "";
+        }
+
+        function appendMessage(user, content, time, imagePath) {
+            const div = document.createElement("div");
+            div.className = "message" + (user === currentUser ? " message-own" : "");
+
+            let contentHtml = "";
+            if (content) {
+                contentHtml += `<div class="message-content">${escapeHtml(content)}</div>`;
+            }
+            if (imagePath) {
+                contentHtml += `<div class="message-content message-image">
+                    <a href="${escapeHtml(imagePath)}" target="_blank" rel="noopener noreferrer">
+                        <img src="${escapeHtml(imagePath)}" class="chat-image" alt="image" loading="lazy" />
+                    </a>
+                </div>`;
+            }
+
+            div.innerHTML = `
+                <div class="message-meta">
+                    <span class="message-username">${escapeHtml(user)}</span>
+                    <span class="message-time">${time}</span>
+                </div>
+                ${contentHtml}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        connection.on("ReceiveMessage", appendMessage);
+
+        photoInput.addEventListener("change", async () => {
+            const file = photoInput.files[0];
+            if (!file) return;
+
+            const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+            if (!allowedTypes.includes(file.type)) {
+                alert("Only JPG, PNG, GIF, and WebP images are supported.");
+                photoInput.value = "";
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                alert("Image must be 5 MB or smaller.");
+                photoInput.value = "";
+                return;
+            }
+
+            if (pendingObjectUrl) URL.revokeObjectURL(pendingObjectUrl);
+            pendingObjectUrl = URL.createObjectURL(file);
+            imagePreview.src = pendingObjectUrl;
+            imagePreviewArea.style.display = "flex";
+
+            const formData = new FormData();
+            formData.append("photo", file);
+
+            try {
+                const response = await fetch(`/Chat/${roomId}?handler=UploadPhoto`, {
+                    method: "POST",
+                    body: formData
+                });
+                if (!response.ok) {
+                    const text = await response.text();
+                    alert("Upload failed: " + text);
+                    clearImage();
+                    return;
+                }
+                const data = await response.json();
+                pendingImagePath = data.imagePath;
+            } catch (e) {
+                alert("Upload error: " + e.message);
+                clearImage();
+            }
+        });
+
+        removeImageBtn.addEventListener("click", clearImage);
+
+        async function sendMessage() {
+            const content = input.value.trim();
+            if (!content && !pendingImagePath) return;
+            if (connection.state !== signalR.HubConnectionState.Connected) return;
+
+            const imagePathToSend = pendingImagePath;
+            input.value = "";
+            clearImage();
+
+            try {
+                await connection.invoke("SendMessage", roomId, content || null, imagePathToSend);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function leaveRoom() {
+            try {
+                await connection.invoke("LeaveRoom", roomId);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        leaveRoomButton.addEventListener("click", leaveRoom);
+        sendBtn.addEventListener("click", sendMessage);
+        input.addEventListener("keydown", e => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        connection.start()
+            .then(() => connection.invoke("JoinRoom", roomId))
+            .then(() => { container.scrollTop = container.scrollHeight; })
+            .catch(console.error);
+    </script>
+}

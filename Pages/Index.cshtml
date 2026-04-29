@@ -1,0 +1,69 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Chat Rooms";
+}
+
+@if (Model.Username == null)
+{
+    <div class="username-screen">
+        <div class="username-card">
+            <h2>Welcome to ChatApp</h2>
+            <p class="text-muted">Choose a username to get started</p>
+            <form method="post" asp-page-handler="SetUsername">
+                <div class="mb-3">
+                    <input asp-for="NewUsername" class="form-control form-control-lg"
+                           placeholder="Enter your username" autofocus maxlength="30" />
+                    <span asp-validation-for="NewUsername" class="text-danger small"></span>
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg w-100">Let's Chat</button>
+            </form>
+        </div>
+    </div>
+}
+else
+{
+    <div class="rooms-screen">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Chat Rooms</h2>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-secondary fs-6">@Model.Username</span>
+                <a asp-page="/Index" asp-page-handler="ClearUsername" class="btn btn-sm btn-outline-secondary">Change</a>
+            </div>
+        </div>
+
+        @if (!Model.Rooms.Any())
+        {
+            <p class="text-muted">No rooms yet. Create the first one below!</p>
+        }
+        else
+        {
+            <div class="row g-3 mb-4">
+                @foreach (var room in Model.Rooms)
+                {
+                    <div class="col-sm-6 col-md-4">
+                        <a asp-page="/Chat" asp-route-id="@room.Id" class="text-decoration-none">
+                            <div class="card room-card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title"># @room.Name</h5>
+                                    <p class="card-text text-muted small">Created @room.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy")</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                }
+            </div>
+        }
+
+        <div class="card create-room-card">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Create a new room</h5>
+                <form method="post" asp-page-handler="CreateRoom" class="d-flex gap-2">
+                    <input asp-for="NewRoomName" class="form-control" placeholder="Room name" maxlength="50" />
+                    <button type="submit" class="btn btn-success text-nowrap">+ Create</button>
+                </form>
+                <span asp-validation-for="NewRoomName" class="text-danger small"></span>
+            </div>
+        </div>
+    </div>
+}
