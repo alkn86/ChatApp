@@ -27,9 +27,7 @@
                 @if (!string.IsNullOrEmpty(msg.ImagePath))
                 {
                     <div class="message-content message-image">
-                        <a href="@msg.ImagePath" target="_blank" rel="noopener noreferrer">
-                            <img src="@msg.ImagePath" class="chat-image" alt="image" loading="lazy" />
-                        </a>
+                        <img src="@msg.ImagePath" class="chat-image chat-image-clickable" alt="image" loading="lazy" data-image-path="@msg.ImagePath" />
                     </div>
                 }
             </div>
@@ -47,6 +45,20 @@
             <input type="text" id="messageInput" class="form-control form-control-lg"
                    placeholder="Type a message..." maxlength="2000" autofocus />
             <button id="sendButton" class="btn btn-primary">Send</button>
+        </div>
+    </div>
+</div>
+
+<!-- Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-0">
+                <img id="modalImage" src="" alt="image" class="img-fluid" style="max-width: 100%; max-height: 80vh;" />
+            </div>
         </div>
     </div>
 </div>
@@ -70,6 +82,8 @@
         const imagePreviewArea = document.getElementById("imagePreviewArea");
         const imagePreview = document.getElementById("imagePreview");
         const removeImageBtn = document.getElementById("removeImageBtn");
+        const imageModal = new bootstrap.Modal(document.getElementById("imageModal"));
+        const modalImage = document.getElementById("modalImage");
 
         let pendingImagePath = null;
         let pendingObjectUrl = null;
@@ -101,9 +115,7 @@
             }
             if (imagePath) {
                 contentHtml += `<div class="message-content message-image">
-                    <a href="${escapeHtml(imagePath)}" target="_blank" rel="noopener noreferrer">
-                        <img src="${escapeHtml(imagePath)}" class="chat-image" alt="image" loading="lazy" />
-                    </a>
+                    <img src="${escapeHtml(imagePath)}" class="chat-image chat-image-clickable" alt="image" loading="lazy" data-image-path="${escapeHtml(imagePath)}" />
                 </div>`;
             }
 
@@ -114,7 +126,22 @@
                 </div>
                 ${contentHtml}`;
             container.appendChild(div);
+            attachImageClickHandlers();
             container.scrollTop = container.scrollHeight;
+        }
+
+        function openImageModal(imagePath) {
+            modalImage.src = imagePath;
+            imageModal.show();
+        }
+
+        function attachImageClickHandlers() {
+            document.querySelectorAll(".chat-image-clickable").forEach(img => {
+                img.style.cursor = "pointer";
+                img.addEventListener("click", function () {
+                    openImageModal(this.dataset.imagePath);
+                });
+            });
         }
 
         connection.on("ReceiveMessage", appendMessage);
@@ -199,7 +226,10 @@
 
         connection.start()
             .then(() => connection.invoke("JoinRoom", roomId))
-            .then(() => { container.scrollTop = container.scrollHeight; })
+            .then(() => {
+                attachImageClickHandlers();
+                container.scrollTop = container.scrollHeight;
+            })
             .catch(console.error);
     </script>
 }
