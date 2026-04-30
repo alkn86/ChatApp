@@ -1,0 +1,31 @@
+# Binaries
+bin/
+obj/
+
+# Tools
+.cache/
+.vs/
+.vscode/
+.idea/
+
+# Configs
+appsettings.Development.json
+appsettings.Local.json
+*.user
+*.userprefs
+*.suo
+.env
+secrets.json
+
+# Logs
+*.log
+TestResults/
+
+# Artifacts
+wwwroot/lib/
+
+# Data Base
+# *.db
+
+# Publish
+publish/
