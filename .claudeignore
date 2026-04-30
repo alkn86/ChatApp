@@ -25,7 +25,7 @@ TestResults/
 wwwroot/lib/
 
 # Data Base
-# *.db
+*.db
 
 # Publish
 publish/

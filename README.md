@@ -86,7 +86,45 @@ sudo systemctl start chatapp
 
 ---
 
+## HTTPS/TLS Setup
+
+### Development with HTTPS
+
+Trust the .NET development certificate (one-time setup):
+```bash
+dotnet dev-certs https --trust
+```
+
+Run with HTTPS enabled:
+```bash
+dotnet run --launch-profile https
+```
+
+The app will be available at `https://localhost:7234` and `http://localhost:5100`.
+
+### Production with HTTPS (Let's Encrypt)
+
+For production deployments, use Let's Encrypt for a free, automated SSL certificate:
+
+**Quick setup with automated script (Linux):**
+```bash
+sudo ./scripts/setup-letsencrypt-cert.sh example.com /opt/chatapp
+```
+
+This script will:
+- Install certbot and openssl if needed
+- Generate a Let's Encrypt certificate for your domain
+- Convert it to PKCS#12 format (.pfx) for .NET
+- Set up automatic renewal hooks
+- Certificate auto-renews every 60 days
+
+See [CLAUDE.md](CLAUDE.md) for more certificate options and manual setup instructions.
+
+---
+
 ## Configuration
+
+### Database
 
 `appsettings.json` controls the database path and logging. The SQLite database file (`chat.db`) is created automatically on first run in the working directory.
 
@@ -98,6 +136,158 @@ To change the database location, edit the connection string:
   }
 }
 ```
+
+### HTTPS Certificate (Production)
+
+For production HTTPS, configure the certificate path in `appsettings.Production.json`:
+```json
+{
+  "Kestrel": {
+    "Endpoints": {
+      "Https": {
+        "Url": "https://0.0.0.0:443"
+      }
+    },
+    "Certificates": {
+      "Default": {
+        "Path": "/etc/ssl/certs/chatapp.pfx",
+        "Password": ""
+      }
+    }
+  }
+}
+```
+
+See [CLAUDE.md - HTTPS/TLS Setup](CLAUDE.md#httpstls-setup) for detailed instructions.
+
+---
+
+## Production Deployment
+
+### Step 1: Build for your platform
+
+```bash
+# Linux x64
+dotnet publish -c Release -r linux-x64 --self-contained -o ./publish/linux
+
+# Windows x64
+dotnet publish -c Release -r win-x64 --self-contained -o ./publish/windows
+
+# Raspberry Pi (ARM64)
+dotnet publish -c Release -r linux-arm64 --self-contained -o ./publish/pi
+```
+
+### Step 2: Set up HTTPS certificate
+
+**Option A: Let's Encrypt (Recommended for Linux)**
+```bash
+# Copy script to server
+scp ./scripts/setup-letsencrypt-cert.sh user@example.com:~/
+
+# SSH and run setup
+ssh user@example.com
+sudo ~/setup-letsencrypt-cert.sh example.com /opt/chatapp
+```
+
+**Option B: Self-signed certificate**
+```bash
+./scripts/create-self-signed-cert.sh example.com ./certs
+scp ./certs/chatapp.pfx user@example.com:/etc/ssl/certs/
+```
+
+### Step 3: Deploy the application
+
+```bash
+# Copy published app to server
+scp -r ./publish/linux/* user@example.com:/opt/chatapp/
+
+# SSH and setup
+ssh user@example.com
+
+# Set permissions
+chmod +x /opt/chatapp/ChatApp
+chmod 600 /etc/ssl/certs/chatapp.pfx
+
+# Run the app
+cd /opt/chatapp
+ASPNETCORE_ENVIRONMENT=Production ./ChatApp
+```
+
+### Step 4: Configure as a system service (recommended)
+
+Create `/etc/systemd/system/chatapp.service`:
+```ini
+[Unit]
+Description=ChatApp - Real-time Chat Application
+After=network.target
+
+[Service]
+Type=simple
+User=chatapp
+WorkingDirectory=/opt/chatapp
+ExecStart=/opt/chatapp/ChatApp
+Restart=on-failure
+RestartSec=10
+Environment="ASPNETCORE_ENVIRONMENT=Production"
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable chatapp
+sudo systemctl start chatapp
+
+# Check status
+sudo systemctl status chatapp
+sudo journalctl -u chatapp -f
+```
+
+### Step 5: Use a reverse proxy (recommended for security)
+
+Configure nginx to handle TLS termination and proxy requests to the app:
+
+```nginx
+# /etc/nginx/sites-available/chatapp
+server {
+    listen 80;
+    server_name example.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name example.com;
+
+    # Use Let's Encrypt certificates
+    ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://127.0.0.1:5103;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Enable the site:
+```bash
+sudo ln -s /etc/nginx/sites-available/chatapp /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+With this setup, the app runs on HTTP internally and nginx handles HTTPS/TLS, improving security and making certificate rotation easier.
 
 ---
 

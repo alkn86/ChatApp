@@ -17,6 +17,18 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
 }
 
+// Configure HTTPS/certificate in production
+if (app.Environment.IsProduction())
+{
+    var certPath = builder.Configuration["Kestrel:Certificates:Default:Path"];
+    var certPassword = builder.Configuration["Kestrel:Certificates:Default:Password"];
+
+    if (!string.IsNullOrEmpty(certPath) && File.Exists(certPath))
+    {
+        app.Logger.LogInformation($"Loading certificate from {certPath}", certPath);
+    }
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");

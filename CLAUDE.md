@@ -4,10 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Quick Start
 
-**Development:**
+**Development (HTTP):**
 ```bash
 dotnet run
-# App runs on http://localhost:5103
+# App runs on http://localhost:5100
+```
+
+**Development (HTTPS):**
+```bash
+dotnet run --launch-profile https
+# App runs on https://localhost:7234 (and http://localhost:5100)
+# First time: dotnet dev-certs https --trust
 ```
 
 **Build for production:**
@@ -60,7 +67,17 @@ ChatApp is a real-time multi-room chat application with three main layers:
     - `OnPostCreateRoom()` — creates room or redirects to existing one
     - `OnGetClearUsername()` — deletes username cookie
 - [Pages/Chat.cshtml](Pages/Chat.cshtml) — chat room view; renders last 100 messages, connects to SignalR hub for real-time updates
-  - [Pages/Chat.cshtml.cs](Pages/Chat.cshtml.cs) — redirects to Index if no username, returns 404 if room doesn't exist
+  - [Pages/Chat.cshtml.cs](Pages/Chat.cshtml.cs) — page model for chat room
+    - `OnGetAsync(int id)` — GET handler; loads room by id and its message history; redirects to Index if no username cookie; returns 404 if room not found; populates RecentMessages list ordered by send time
+    - `OnPostUploadPhotoAsync(int id, IFormFile photo)` — POST handler for image uploads; validates username cookie exists, room exists, file size (≤5 MB), and file type (JPG, PNG, GIF, WebP); saves file to `/wwwroot/uploads/` with GUID filename; returns JSON with `/uploads/` relative path
+  - Client-side JavaScript methods in `<script>` section:
+    - `escapeHtml(text)` — sanitizes user input by converting text to HTML entities, prevents XSS attacks
+    - `clearImage()` — clears pending image upload state, revokes object URL, hides preview area, resets file input
+    - `appendMessage(user, content, time, imagePath)` — dynamically adds a new message to the chat display; creates DOM element with metadata and content; handles both text and image messages; auto-scrolls to bottom; attaches image click handlers
+    - `openImageModal(imagePath)` — opens Bootstrap modal displaying full-size image from given path
+    - `attachImageClickHandlers()` — attaches click event listeners to all clickable chat images to open the image modal
+    - `sendMessage()` — sends message to SignalR hub with optional text content and/or image; validates connection state; clears input and pending image state after send
+    - `leaveRoom()` — invokes SignalR `LeaveRoom` method to unsubscribe connection from current room group
 
 **Layout & Styling**
 - [Pages/Shared/_Layout.cshtml](Pages/Shared/_Layout.cshtml) — shared HTML shell with navbar, Bootstrap, jQuery
@@ -86,6 +103,169 @@ ChatApp is a real-time multi-room chat application with three main layers:
   - Can be overridden in [appsettings.Development.json](appsettings.Development.json) for local dev
 - **Logging** — controlled in [appsettings.json](appsettings.json) → `Logging` section
 - **Launch Settings** — local dev profiles in [Properties/launchSettings.json](Properties/launchSettings.json) (not used in production)
+
+## HTTPS/TLS Setup
+
+### Development with HTTPS
+
+The app is pre-configured to support HTTPS in development using the .NET development certificate:
+
+**First time setup (trust the dev certificate):**
+```bash
+dotnet dev-certs https --trust
+```
+
+**Run with HTTPS:**
+```bash
+dotnet run --launch-profile https
+# App runs on https://localhost:7234 and http://localhost:5100
+```
+
+The HTTPS profile is configured in [Properties/launchSettings.json](Properties/launchSettings.json) and [appsettings.Development.json](appsettings.Development.json).
+
+### Production with HTTPS
+
+For production, you need to obtain or generate a certificate and configure it in [appsettings.Production.json](appsettings.Production.json).
+
+**Option 1: Let's Encrypt (Recommended)**
+
+Use the automated Let's Encrypt setup script:
+
+```bash
+# Linux x64 (requires sudo)
+sudo ./scripts/setup-letsencrypt-cert.sh example.com /opt/chatapp
+```
+
+This script will:
+- Install certbot and openssl if needed
+- Generate a Let's Encrypt certificate for your domain
+- Convert it to PKCS#12 format (.pfx) for .NET
+- Set up automatic renewal hooks
+- Certificate auto-renews every 60 days
+
+**Windows users:** Let's Encrypt works best on Linux servers. For Windows development/testing, use self-signed certificates instead.
+
+**Option 2: Self-signed Certificate (testing/internal only)**
+
+```bash
+# Linux/macOS using OpenSSL
+./scripts/create-self-signed-cert.sh example.com ./certs
+
+# Windows using PowerShell
+.\scripts\create-self-signed-cert.ps1 -Domain example.com -OutputDir .\certs
+```
+
+This generates `chatapp.pfx` which is the certificate file needed for .NET.
+
+**Option 3: Certificate from Certificate Authority**
+
+For production, you can also use a certificate from a trusted CA such as:
+- [DigiCert](https://www.digicert.com/)
+- Your organization's internal CA
+- [CloudFlare Origin Certificates](https://developers.cloudflare.com/ssl/origin-configuration/origin-ca/)
+
+Export your CA-issued certificate as a PKCS#12 (.pfx) file.
+
+**Configure the certificate path:**
+
+Edit [appsettings.Production.json](appsettings.Production.json):
+```json
+{
+  "Kestrel": {
+    "Endpoints": {
+      "Http": {
+        "Url": "http://0.0.0.0:80"
+      },
+      "Https": {
+        "Url": "https://0.0.0.0:443"
+      }
+    },
+    "Certificates": {
+      "Default": {
+        "Path": "/etc/ssl/certs/chatapp.pfx",
+        "Password": ""
+      }
+    }
+  }
+}
+```
+
+- **Path**: Absolute path where the `.pfx` file is stored
+- **Password**: Certificate password (leave empty if no password was set during export)
+
+**Deployment with HTTPS (Let's Encrypt):**
+
+```bash
+# 1. Publish the app
+dotnet publish -c Release -r linux-x64 --self-contained -o ./publish/linux
+
+# 2. Copy app to server
+scp -r ./publish/linux/* user@example.com:/opt/chatapp/
+
+# 3. Copy certificate setup script
+scp ./scripts/setup-letsencrypt-cert.sh user@example.com:~/
+
+# 4. SSH to server and setup certificate
+ssh user@example.com
+sudo ~/setup-letsencrypt-cert.sh example.com /opt/chatapp
+
+# 5. Update appsettings.Production.json with certificate path
+# The script outputs the path to use
+
+# 6. Set permissions and run
+chmod +x /opt/chatapp/ChatApp
+cd /opt/chatapp && ASPNETCORE_ENVIRONMENT=Production ./ChatApp
+```
+
+**Manual deployment (if you already have a certificate):**
+
+```bash
+# Copy certificate to the server
+scp ./certs/chatapp.pfx user@example.com:/etc/ssl/certs/
+
+# Copy app and appsettings.Production.json
+scp -r ./publish/linux/* user@example.com:/opt/chatapp/
+
+# Set permissions
+ssh user@example.com "chmod 600 /etc/ssl/certs/chatapp.pfx"
+ssh user@example.com "chmod +x /opt/chatapp/ChatApp"
+
+# Run the app (picks up appsettings.Production.json automatically)
+ssh user@example.com "cd /opt/chatapp && ASPNETCORE_ENVIRONMENT=Production ./ChatApp"
+```
+
+**Nginx reverse proxy with HTTPS (recommended):**
+
+```nginx
+server {
+    listen 80;
+    server_name example.com;
+    return 301 https://$server_name$request_uri;  # Redirect HTTP to HTTPS
+}
+
+server {
+    listen 443 ssl http2;
+    server_name example.com;
+
+    ssl_certificate /etc/ssl/certs/example.crt;
+    ssl_certificate_key /etc/ssl/private/example.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://localhost:5103;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+In this setup, app runs on HTTP internally (port 5103) and nginx handles the HTTPS/TLS termination.
 
 ## Deployment
 
@@ -133,7 +313,7 @@ chmod +x ./ChatApp
 
 1. **Environment Setup**
    - Create `appsettings.Production.json` in the same directory as the executable
-   - Override connection string, logging, and other settings as needed:
+   - Override connection string, logging, HTTPS certificate, and other settings as needed:
    ```json
    {
      "ConnectionStrings": {
@@ -143,9 +323,26 @@ chmod +x ./ChatApp
        "LogLevel": {
          "Default": "Information"
        }
+     },
+     "Kestrel": {
+       "Endpoints": {
+         "Http": {
+           "Url": "http://0.0.0.0:80"
+         },
+         "Https": {
+           "Url": "https://0.0.0.0:443"
+         }
+       },
+       "Certificates": {
+         "Default": {
+           "Path": "/etc/ssl/certs/chatapp.pfx",
+           "Password": ""
+         }
+       }
      }
    }
    ```
+   - See [HTTPS/TLS Setup](#httpstls-setup) section above for certificate configuration
 
 2. **Database Preparation**
    - On first run, the app automatically creates the database if it doesn't exist
