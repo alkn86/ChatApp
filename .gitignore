@@ -1,9 +1,11 @@
 wwwroot/uploads/
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
+[Pp]ublish/
 x64/
 x86/
 [Ww][Ii][Nn]32/
@@ -14,6 +16,9 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+
 # Data Base
 *.db
+*.db-shm
+*.db-wal
 chat.db
