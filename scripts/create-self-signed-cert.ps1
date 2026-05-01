@@ -9,14 +9,21 @@ param(
 Write-Host "Creating self-signed certificate for domain: $Domain"
 Write-Host "Output directory: $OutputDir"
 
+# Create output directory if it doesn't exist
+if (-not (Test-Path $OutputDir)) {
+    New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
+    Write-Host "Created output directory: $OutputDir"
+}
+
 # Create certificate valid for 365 days
 $cert = New-SelfSignedCertificate -DnsName $Domain -CertStoreLocation cert:\CurrentUser\My `
     -NotAfter (Get-Date).AddDays(365) -FriendlyName "ChatApp Dev Certificate"
 
-# Export as PFX
+# Export as PFX (with empty password)
 $certPath = "cert:\CurrentUser\My\$($cert.Thumbprint)"
 $pfxPath = Join-Path $OutputDir "chatapp.pfx"
-Export-PfxCertificate -Cert $certPath -FilePath $pfxPath -Password (ConvertTo-SecureString -String "" -AsPlainText -Force)
+$emptyPassword = New-Object System.Security.SecureString
+Export-PfxCertificate -Cert $certPath -FilePath $pfxPath -Password $emptyPassword
 
 Write-Host "Certificate created successfully!"
 Write-Host "  - Thumbprint: $($cert.Thumbprint)"

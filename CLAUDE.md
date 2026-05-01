@@ -274,6 +274,7 @@ In this setup, app runs on HTTP internally (port 5103) and nginx handles the HTT
 - Target system must have the matching runtime or .NET 9 SDK installed (not needed for self-contained builds)
 - For SQLite database, ensure the directory where `chat.db` will be stored is writable
 - Port 5103 (or configured port) must be available and accessible
+- **Configuration files** (`appsettings.json`, `appsettings.Production.json`) must be in the **current working directory** when starting the app, not necessarily in the same directory as the executable
 
 ### Platform-Specific Deployment
 
@@ -419,6 +420,7 @@ chmod +x ./ChatApp
 
 ### Troubleshooting
 
+- **App listening on wrong port (default 5000):** Configuration files (`appsettings.json`, `appsettings.Production.json`) must be in the **current working directory** when the app starts, not where the executable is located. Either copy config files to your working directory, or run the app from the directory containing the config files.
 - **Port already in use:** Change the port in `appsettings.json` or kill the process using the port
 - **Database locked:** Ensure only one instance is running; multiple instances sharing the same SQLite file can cause locking issues
 - **SignalR connection failures:** Check firewall rules, ensure WebSocket support is enabled in reverse proxy, verify CORS settings if needed
