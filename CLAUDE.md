@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Quick Start
 
+> 📱 **Deploying to Raspberry Pi?** See [RASPBERRY_PI_DEPLOYMENT.md](RASPBERRY_PI_DEPLOYMENT.md) for a quick automated setup guide using helper scripts.
+
 **Development (HTTP):**
 ```bash
 dotnet run
