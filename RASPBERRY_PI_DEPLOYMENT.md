@@ -53,20 +53,28 @@ ASPNETCORE_ENVIRONMENT=Production ./ChatApp
 
 App runs on `http://localhost:5103`
 
-**Option B: Run as systemd service (recommended for production)**
+**Option B: Run as systemd service (recommended for production) — Auto-starts on Pi reboot**
 
 ```bash
 sudo ./setup-systemd-service.sh /opt/chatapp
-sudo systemctl start chatapp
 ```
 
-Then manage with:
+This creates a systemd service that:
+- ✅ **Auto-starts on Raspberry Pi reboot** — no manual intervention needed
+- Restarts automatically if it crashes
+- Runs with proper permissions
+- Integrates with system logs
+
+After setup, manage with:
 ```bash
-sudo systemctl status chatapp       # Check status
-sudo systemctl stop chatapp         # Stop service
-sudo systemctl restart chatapp      # Restart
-sudo journalctl -u chatapp -f       # View live logs
+sudo systemctl start chatapp       # Start the service now
+sudo systemctl stop chatapp        # Stop the service
+sudo systemctl restart chatapp     # Restart the service
+sudo systemctl status chatapp      # Check service status
+sudo journalctl -u chatapp -f      # Follow live service logs
 ```
+
+Service will auto-start on next Pi reboot.
 
 ## Configuration
 

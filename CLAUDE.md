@@ -312,6 +312,8 @@ chmod +x ./ChatApp
 # App runs on http://localhost:5103
 ```
 
+**🚀 For Raspberry Pi auto-start on reboot:** See [RASPBERRY_PI_DEPLOYMENT.md](RASPBERRY_PI_DEPLOYMENT.md) for automated setup scripts that configure systemd service. This ensures ChatApp starts automatically after the Pi reboots, with no manual intervention required.
+
 ### Production Configuration
 
 1. **Environment Setup**
@@ -411,6 +413,7 @@ chmod +x ./ChatApp
    sudo systemctl enable chatapp
    sudo systemctl start chatapp
    ```
+   - **For Raspberry Pi:** Automated setup script available — see [RASPBERRY_PI_DEPLOYMENT.md](RASPBERRY_PI_DEPLOYMENT.md) for `setup-systemd-service.sh` which configures this service automatically with proper user and directory permissions, ensuring auto-start on Pi reboot.
 
 6. **Windows Service (Optional)**
    - Use tools like `sc.exe` or NSSM (Non-Sucking Service Manager) to run as a Windows service
