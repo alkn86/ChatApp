@@ -185,3 +185,56 @@ body {
     object-fit: cover;
     border: 1px solid #dee2e6;
 }
+
+/* Dark mode theme */
+[data-bs-theme="dark"] body {
+    background-color: #1a1d21;
+}
+
+[data-bs-theme="dark"] .username-card,
+[data-bs-theme="dark"] .create-room-card {
+    background: #2b2d31;
+    border-color: #3f4147;
+}
+
+[data-bs-theme="dark"] .room-card {
+    border-color: #3f4147;
+    background: #2b2d31;
+}
+
+[data-bs-theme="dark"] .chat-container {
+    background: #313338;
+}
+
+[data-bs-theme="dark"] .chat-header {
+    background: #2b2d31;
+    border-bottom-color: #1e1f22;
+}
+
+[data-bs-theme="dark"] .chat-messages {
+    background: #313338;
+}
+
+[data-bs-theme="dark"] .message-username {
+    color: #b5bac1;
+}
+
+[data-bs-theme="dark"] .message-time {
+    color: #6d6f78;
+}
+
+[data-bs-theme="dark"] .message-content {
+    background: #383a40;
+    border-color: #3f4147;
+    color: #dbdee1;
+}
+
+[data-bs-theme="dark"] .chat-input {
+    background: #383a40;
+    border-top-color: #1e1f22;
+}
+
+[data-bs-theme="dark"] .attachment-preview {
+    border-color: #3f4147;
+    background: #2b2d31;
+}
