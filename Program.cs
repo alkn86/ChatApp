@@ -7,7 +7,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddSignalR();
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=chat.db"));
+    options.UseSqlite(
+        builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=chat.db"
+    )
+);
 
 var app = builder.Build();
 

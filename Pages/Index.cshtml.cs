@@ -42,11 +42,11 @@ public class IndexModel(AppDbContext db) : PageModel
         if (sanitized.Length > 30)
             sanitized = sanitized[..30];
 
-        Response.Cookies.Append("ChatUsername", sanitized, new CookieOptions
-        {
-            Expires = DateTimeOffset.UtcNow.AddYears(1),
-            IsEssential = true
-        });
+        Response.Cookies.Append(
+            "ChatUsername",
+            sanitized,
+            new CookieOptions { Expires = DateTimeOffset.UtcNow.AddYears(1), IsEssential = true }
+        );
 
         return RedirectToPage();
     }

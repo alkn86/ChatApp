@@ -1,7 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "Bash(curl -s http://localhost:5100/)"
+      "Bash(curl -s http://localhost:5100/)",
+      "Bash(dotnet csharpier format .)"
     ]
+  },
+  "hooks":{
+    "PreToolUse":[{
+      "matcher": "Read|Grep",
+      "hooks": [
+        {
+          "type":"command",
+          "command": "dotnet csharpier format ."
+        }
+      ]
+  }]
   }
+
 }

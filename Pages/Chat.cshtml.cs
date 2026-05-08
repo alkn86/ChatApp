@@ -24,8 +24,8 @@ public class ChatModel(AppDbContext db, IWebHostEnvironment env) : PageModel
         if (Room == null)
             return NotFound();
 
-        RecentMessages = await db.Messages
-            .Where(m => m.RoomId == id)
+        RecentMessages = await db
+            .Messages.Where(m => m.RoomId == id)
             .OrderBy(m => m.SentAt)
             //.TakeLast(100)
             .ToListAsync();
@@ -48,9 +48,20 @@ public class ChatModel(AppDbContext db, IWebHostEnvironment env) : PageModel
             return BadRequest("File exceeds 5 MB limit.");
 
         var allowedExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+        {
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp",
+        };
         var allowedMimes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            { "image/jpeg", "image/png", "image/gif", "image/webp" };
+        {
+            "image/jpeg",
+            "image/png",
+            "image/gif",
+            "image/webp",
+        };
 
         var ext = Path.GetExtension(photo.FileName);
         if (!allowedExts.Contains(ext) || !allowedMimes.Contains(photo.ContentType))

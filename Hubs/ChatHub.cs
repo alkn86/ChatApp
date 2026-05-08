@@ -21,7 +21,8 @@ public class ChatHub(AppDbContext db) : Hub
         var hasContent = !string.IsNullOrWhiteSpace(content);
         var hasImage = !string.IsNullOrEmpty(imagePath);
 
-        if (!hasContent && !hasImage) return;
+        if (!hasContent && !hasImage)
+            return;
 
         if (hasImage && !IsValidUploadPath(imagePath!))
             return;
@@ -33,21 +34,24 @@ public class ChatHub(AppDbContext db) : Hub
             Username = username,
             Content = hasContent ? content!.Trim() : null,
             ImagePath = hasImage ? imagePath : null,
-            SentAt = DateTime.UtcNow
+            SentAt = DateTime.UtcNow,
         };
         db.Messages.Add(message);
         await db.SaveChangesAsync();
 
-        await Clients.Group($"room_{roomId}").SendAsync(
-            "ReceiveMessage",
-            message.Username,
-            message.Content,
-            message.SentAt.ToString("HH:mm"),
-            message.ImagePath);
+        await Clients
+            .Group($"room_{roomId}")
+            .SendAsync(
+                "ReceiveMessage",
+                message.Username,
+                message.Content,
+                message.SentAt.ToString("HH:mm"),
+                message.ImagePath
+            );
     }
 
     private static bool IsValidUploadPath(string path) =>
-        path.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase) &&
-        !path.Contains("..") &&
-        Path.GetFileName(path).Length > 0;
+        path.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase)
+        && !path.Contains("..")
+        && Path.GetFileName(path).Length > 0;
 }
